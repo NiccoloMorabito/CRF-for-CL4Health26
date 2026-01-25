@@ -1,0 +1,45 @@
+{
+  "builder_name": "parquet",
+  "citation": "",
+  "config_name": "default",
+  "dataset_name": "dyspnea-valid-options",
+  "dataset_size": 7622,
+  "description": "",
+  "download_checksums": {
+    "hf://datasets/NLP-FBK/dyspnea-valid-options@e2950ecd74394d0bfbf315106186daf70e2c92c1/data/train-00000-of-00001.parquet": {
+      "num_bytes": 4415,
+      "checksum": null
+    }
+  },
+  "download_size": 4415,
+  "features": {
+    "options": {
+      "feature": {
+        "dtype": "string",
+        "_type": "Value"
+      },
+      "_type": "List"
+    },
+    "item": {
+      "dtype": "string",
+      "_type": "Value"
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 12037,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 7622,
+      "num_examples": 134,
+      "dataset_name": "dyspnea-valid-options"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}
