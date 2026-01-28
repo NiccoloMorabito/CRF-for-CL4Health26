@@ -3,17 +3,23 @@ from groq import Groq
 import json
 import pydantic 
 from pydantic import BaseModel
-from typing import get_args, Literal
 import os
 
 from prompts import SYSTEM_PROMPT
 from dataset_utils import load_or_download_dataset
 from models import build_crf_model
+from crf_utils import build_compact_schema, save_prediction
+
+# IMPROVEMENTS:
+# [ ] pass the json for validation directly to the model invocation when possible (check if it's supported)
+# self healing strategies:
+# [x] increase temperature error after error (already implemented, works sometimes for qwen3)
+# [ ] pass the error message when problems in the json are detected to see if it fixes them afterwards (new prompt with schema, invalid JSON, validation error and "Fix the JSON so it passes validation. Do not change values unless required to fix an error.")
 
 LANGUAGE = "en" #TODO
-MODEL_ID = "qwen/qwen3-32b" #TODO with this model it does print also the think for some reasons
+MODEL_ID = "qwen/qwen3-32b"
 MODEL_ID = "meta-llama/llama-4-maverick-17b-128e-instruct"
-OUTPUT_FILE = f"{MODEL_ID.split("/")[-1]}_27jan_{LANGUAGE}.jsonl"
+OUTPUT_FILE = f"{MODEL_ID.split('/')[-1]}_dynamic-temp_{LANGUAGE}.jsonl"
 OUTPUT_PATH = os.path.join("CRF-filling-CL4Health2026", "your_submission_data", OUTPUT_FILE)
 
 FS_DATASET = "NLP-FBK/dyspnea-crf-train"
@@ -54,7 +60,7 @@ def extract_crf(dataset: str): #TODO clean this method
             for attempt in range(MAX_RETRIES):
                 try:
                     # 1. Invoke model (Network/API errors cached here)
-                    raw_output = invoke_model(client, clinical_note, base_messages.copy())
+                    raw_output = invoke_model(client, clinical_note, base_messages.copy(), attempt)
                     
                     # 2. Parse JSON
                     data_dict = json.loads(raw_output)
@@ -114,7 +120,7 @@ def create_base_messages(model: type[BaseModel]): #TODO I made this method calle
         })
     return messages
 
-def invoke_model(client, clinical_note: str, messages):
+def invoke_model(client, clinical_note: str, messages, attempt: int):
     messages.append({
         "role": "user",
         "content": f"""
@@ -123,53 +129,19 @@ Now process the following clinical note:
 """
     })
 
+    temperature = attempt * 0.2 # NOTE first shy attempt to make the model escape the same error over and over
+
     # Let exceptions propagate to be handled by the caller
     response = client.chat.completions.create(
         model=MODEL_ID,
         messages=messages,
-        temperature=0,# default = 1 TODO change this, especially maybe after errors
+        temperature=temperature,# default = 1
+        reasoning_format="hidden" if MODEL_ID == "qwen/qwen3-32b" else None
     )
 
     raw_output = response.choices[0].message.content
     return raw_output
 
-def build_compact_schema(model: type[BaseModel], remove_unknown_values: bool = False) -> str:
-    lines = []
-
-    for field_name, field in model.model_fields.items():
-        annotation = field.annotation
-
-        # This is your case: Literal["y", "n", "unknown", ...]
-        if annotation is not None and getattr(annotation, "__origin__", None) is Literal:
-            values = get_args(annotation)
-            if remove_unknown_values:
-                values = [value for value in values if value != "unknown"]
-                #NOTE: removing unknown from the possible values here ^ considering the current system prompt
-            joined = " | ".join(values)
-            lines.append(f"{field_name}: {joined}")
-
-    return "\n".join(lines)
-
-def save_prediction(f, doc_id, result):
-    # Format output
-    predictions = []
-    #TODO
-    # Result can be a Pydantic model or a fake_instance (which might be a Pydantic model too if initialized that way)
-    # If result is already a dict (unlikely with current logic but good for safety), use it directly.
-    # But current logic uses CRFModel instance.
-    
-    data_dict = result.model_dump()
-    
-    for field_name, value in data_dict.items():
-        predictions.append({"item": field_name, "prediction": value})
-    
-    output_entry = {
-        "document_id": doc_id,
-        "predictions": predictions
-    }
-    
-    f.write(json.dumps(output_entry) + "\n")
-    f.flush() # Ensure it's written immediately 
 
 if __name__ == "__main__":
     extract_crf("NLP-FBK/dyspnea-crf-development")
