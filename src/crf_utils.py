@@ -2,6 +2,8 @@ import json
 from typing import get_args, Literal
 from pydantic import BaseModel
 
+from dataset_utils import load_or_download_dataset
+
 def build_compact_schema(model: type[BaseModel], remove_unknown_values: bool = False) -> str:
     lines = []
 
@@ -18,6 +20,52 @@ def build_compact_schema(model: type[BaseModel], remove_unknown_values: bool = F
             lines.append(f"{field_name}: {joined}")
 
     return "\n".join(lines)
+
+def create_base_messages(model: type[BaseModel], system_prompt: str, fs_dataset_name: str, language: str, num_fs_examples: int):
+    # system prompt and expected schema
+    messages = [
+        {
+            "role": "system",
+            "content": system_prompt + "\n\nCRF Schema:\n" + build_compact_schema(model)
+        }
+    ]
+
+    # few-shot examples
+    fs_examples = load_or_download_dataset(fs_dataset_name)[language]
+    for ex in fs_examples.select(range(num_fs_examples)):
+        messages.append({
+            "role": "user",
+            "content": f"Extract structured data from this clinical note:\n\n{ex['clinical_note']}"
+        })
+        # Filter out unknown values to save tokens and match system prompt instructions
+        filtered_annotations = {item["item"]: item["ground_truth"] for item in ex["annotations"] if item["ground_truth"] != "unknown"}
+        messages.append({
+            "role": "assistant",
+            "content": json.dumps(filtered_annotations, ensure_ascii=False)
+        })
+    return messages
+
+def invoke_model(client, model_id: str, clinical_note: str, messages: list, attempt: int):
+    messages.append({
+        "role": "user",
+        "content": f"""
+Now process the following clinical note: 
+{clinical_note}
+"""
+    })
+
+    temperature = attempt * 0.2 # NOTE first shy attempt to make the model escape the same error over and over
+
+    # Let exceptions propagate to be handled by the caller
+    response = client.chat.completions.create(
+        model=model_id,
+        messages=messages,
+        temperature=temperature,# default = 1
+        reasoning_format="hidden" if model_id == "qwen/qwen3-32b" else None
+    )
+
+    raw_output = response.choices[0].message.content
+    return raw_output
 
 def save_prediction(f, doc_id, result):
     # Format output
