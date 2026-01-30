@@ -5,3 +5,4 @@ pydantic
 jupyter
 notebook
 google-genai
+openai
