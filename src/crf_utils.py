@@ -77,7 +77,6 @@ def create_base_messages(
         if llm_type == "openai":
             # OpenAI: System message in history, native schema via response_format
             messages.append({"role": "system", "content": system_prompt})
-            returned_system_instruction = None 
         elif llm_type == "gemini":
             # Gemini: System prompt passed via config (system_instruction)
             returned_system_instruction = system_prompt
