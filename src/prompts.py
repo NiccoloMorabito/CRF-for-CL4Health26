@@ -1,4 +1,4 @@
-SYSTEM_PROMPT = """
+ORIGINAL_SYSTEM_PROMPT = """
 You are a medical information extraction system.
 
 Task:

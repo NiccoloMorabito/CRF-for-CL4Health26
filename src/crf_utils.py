@@ -127,7 +127,7 @@ def create_base_messages(
 def invoke_model(
     client: Any, 
     model_id: str, 
-    clinical_note: str, 
+    final_message: str, 
     messages: list, 
     attempt: int,
     system_instruction: Optional[str] = None,
@@ -139,7 +139,7 @@ def invoke_model(
     Args:
         client: The initialized API client (Groq, OpenAI, or genai.Client).
         model_id: The model identifier string.
-        clinical_note: The input text to process.
+        final_message: The final message to send to the model.
         messages: The context messages (history).
         attempt: The retry attempt number (used for temperature scaling).
         system_instruction: Optional system prompt (used for Gemini).
@@ -149,15 +149,13 @@ def invoke_model(
         Union[str, BaseModel]: raw JSON string (Groq/Gemma) OR validated Pydantic model (OpenAI/Gemini).
     """
     
-    final_message_text = f"Now process the following clinical note:\n{clinical_note}"
-    
     temperature = attempt * 0.2 
 
     # --- GROQ ---
     if isinstance(client, Groq):
         messages.append({
             "role": "user",
-            "content": final_message_text
+            "content": final_message
         })
         response = client.chat.completions.create(
             model=model_id,
@@ -172,7 +170,7 @@ def invoke_model(
     elif isinstance(client, OpenAI):
         messages.append({
             "role": "user",
-            "content": final_message_text
+            "content": final_message
         })
         
         if pydantic_model:
@@ -199,7 +197,7 @@ def invoke_model(
 
     # --- GOOGLE GENAI (Gemini / Gemma) ---
     elif isinstance(client, genai.Client):
-        messages.append(types.Content(role="user", parts=[types.Part(text=final_message_text)]))
+        messages.append(types.Content(role="user", parts=[types.Part(text=final_message)]))
         
         config_args = {"temperature": temperature * 0.5}
         
