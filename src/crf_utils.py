@@ -251,3 +251,10 @@ def save_prediction(f, doc_id, result):
     
     f.write(json.dumps(output_entry) + "\n")
     f.flush() # Ensure it's written immediately 
+
+def reconstruct_orig_format_from_predictions(predictions: list[dict]) -> dict:
+    return {
+        p["item"]: p["prediction"]
+        for p in predictions
+        if p["prediction"] != "unknown"
+    }
