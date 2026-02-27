@@ -7,7 +7,8 @@ DATASET_NAMES = [
     "NLP-FBK/dyspnea-crf-train",
     "NLP-FBK/dyspnea-crf-development",
     "NLP-FBK/dyspnea-clinical-notes",
-    "NLP-FBK/dyspnea-valid-options"
+    "NLP-FBK/dyspnea-valid-options",
+    "NLP-FBK/dyspnea-crf-test",
 ]
 
 def get_dataset_path(dataset_name: str) -> str:
@@ -49,7 +50,7 @@ def download_and_save_datasets(): #TODO this could also be deleted probably
 
 if __name__ == "__main__":
     # download_and_save_datasets()
-    ds = load_or_download_dataset("NLP-FBK/dyspnea-crf-development")["en"]
+    ds = load_or_download_dataset("NLP-FBK/dyspnea-crf-test")["en"]
     print(ds)
     for el in ds:
         print(len(el["annotations"]))
